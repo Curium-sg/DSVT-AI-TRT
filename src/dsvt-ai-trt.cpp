@@ -84,13 +84,13 @@ static Logger gLogger;
 
 
 class RTLogger : public nvinfer1::ILogger {
-  public:
+  public:  
     void log(Severity severity, const char* msg) noexcept override {
         // suppress info-level message
-        //if (severity == Severity::kERROR || severity == Severity::kINTERNAL_ERROR || severity == Severity::kINFO ) {
-        if (severity == Severity::kERROR || severity == Severity::kINTERNAL_ERROR) {
+        // if (severity == Severity::kERROR || severity == Severity::kINTERNAL_ERROR || severity == Severity::kINFO ) {
+        // if (severity == Severity::kERROR || severity == Severity::kINTERNAL_ERROR) {
             std::cerr << "trt_infer: " << msg << std::endl;
-        }
+        // }
     }
 } rt_glogger;
 
@@ -542,7 +542,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     assert(point_size);
     // return;
 
-    std::map<std::string, Weights> weightMap = loadWeights_new("../dsvt.wts");
+    std::map<std::string, Weights> weightMap = loadWeights_new("/home/curium/repos/DSVT-AI-TRT/tools/dsvt_small_4_50.wts");
+    // std::map<std::string, Weights> weightMap = loadWeights_new("/home/curium/repos/DSVT-AI-TRT/tools/dsvt_10_50.wts");
     std::cout << "load weights finished" << std::endl;
 
 
@@ -567,6 +568,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     }
    
+    assert(FEATURES_NUM == 10 || FEATURES_NUM == 7);
 
     auto voxelGenerator = add_voxel_generator(network,point_data,point_size,MAX_POINTS_NUM,MAX_POINTS_NUM_1,MAX_PILLARS_NUM,
                                               POINT_FEATURE_NUM,FEATURES_NUM,POINTS_NUM_PER_VOXEL,
@@ -574,7 +576,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
                                         VOXEL_SIZE_X,VOXEL_SIZE_Y,VOXEL_SIZE_Z,
                                         GRID_SIZE_X,GRID_SIZE_Y,GRID_SIZE_Z);
 
-    auto pfn_layer_0 = fullyConnectedBnLELU(network,weightMap,*voxelGenerator->getOutput(0),PFN_LAYER_0_OUT_CHANNEL,"module.vfe.pfn_layers.0.linear","module.vfe.pfn_layers.0.norm");
+    auto pfn_layer_0 = fullyConnectedBnLELU(network,weightMap,*voxelGenerator->getOutput(0),PFN_LAYER_0_OUT_CHANNEL,"vfe.pfn_layers.0.linear","vfe.pfn_layers.0.norm");
 
     auto torch_scatter_max_0 = add_torch_scatter_max(network,pfn_layer_0->getOutput(0),voxelGenerator->getOutput(1),voxelGenerator->getOutput(3),voxelGenerator->getOutput(4),
                                                                                                                 MAX_POINTS_NUM_1,MAX_PILLARS_NUM,PFN_LAYER_0_OUT_CHANNEL);
@@ -584,7 +586,7 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     auto cat_tensor = network->addConcatenation(inputTensors, 2);
     cat_tensor->setAxis(2);
 
-     auto pfn_layer_1 = fullyConnectedBnLELU(network,weightMap,*cat_tensor->getOutput(0),PFN_LAYER_1_OUT_CHANNEL,"module.vfe.pfn_layers.1.linear","module.vfe.pfn_layers.1.norm");
+     auto pfn_layer_1 = fullyConnectedBnLELU(network,weightMap,*cat_tensor->getOutput(0),PFN_LAYER_1_OUT_CHANNEL,"vfe.pfn_layers.1.linear","vfe.pfn_layers.1.norm");
 
     auto torch_scatter_max_1 = add_torch_scatter_max(network,pfn_layer_1->getOutput(0),voxelGenerator->getOutput(1),voxelGenerator->getOutput(3),voxelGenerator->getOutput(4),
                                                                                                                 MAX_POINTS_NUM_1,MAX_PILLARS_NUM,PFN_LAYER_1_OUT_CHANNEL);
@@ -601,40 +603,40 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
                                                                         MAX_WIN_NUM,MAX_VOXEL_NUM_PER_WIN,VOXEL_NUM_SET,WIN_SHAPE_1_X,WIN_SHAPE_1_Y,WIN_SHAPE_1_Z);//24*24
 
     auto embed_layer_0_0_0 = fullyConnectedBnLELU_fullyConnected(network, weightMap, *window_partition_0->getOutput(5), POSEMBED_LAYBERS_OUT_FEATURES, PFN_LAYER_1_OUT_CHANNEL,
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.0.0.position_embedding_head.0",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.0.0.position_embedding_head.3",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.0.0.position_embedding_head.1"); 
+                                                            "backbone_3d.input_layer.posembed_layers.0.0.0.position_embedding_head.0",
+                                                            "backbone_3d.input_layer.posembed_layers.0.0.0.position_embedding_head.3",
+                                                            "backbone_3d.input_layer.posembed_layers.0.0.0.position_embedding_head.1"); 
     auto embed_layer_0_1_0 = fullyConnectedBnLELU_fullyConnected(network, weightMap, *window_partition_0->getOutput(5), POSEMBED_LAYBERS_OUT_FEATURES, PFN_LAYER_1_OUT_CHANNEL,
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.1.0.position_embedding_head.0",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.1.0.position_embedding_head.3",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.1.0.position_embedding_head.1"); 
+                                                            "backbone_3d.input_layer.posembed_layers.0.1.0.position_embedding_head.0",
+                                                            "backbone_3d.input_layer.posembed_layers.0.1.0.position_embedding_head.3",
+                                                            "backbone_3d.input_layer.posembed_layers.0.1.0.position_embedding_head.1"); 
     auto embed_layer_0_2_0 = fullyConnectedBnLELU_fullyConnected(network, weightMap, *window_partition_0->getOutput(5), POSEMBED_LAYBERS_OUT_FEATURES, PFN_LAYER_1_OUT_CHANNEL,
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.2.0.position_embedding_head.0",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.2.0.position_embedding_head.3",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.2.0.position_embedding_head.1"); 
+                                                            "backbone_3d.input_layer.posembed_layers.0.2.0.position_embedding_head.0",
+                                                            "backbone_3d.input_layer.posembed_layers.0.2.0.position_embedding_head.3",
+                                                            "backbone_3d.input_layer.posembed_layers.0.2.0.position_embedding_head.1"); 
            
     auto embed_layer_0_3_0 = fullyConnectedBnLELU_fullyConnected(network, weightMap, *window_partition_0->getOutput(5), POSEMBED_LAYBERS_OUT_FEATURES, PFN_LAYER_1_OUT_CHANNEL,
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.3.0.position_embedding_head.0",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.3.0.position_embedding_head.3",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.3.0.position_embedding_head.1"); 
+                                                            "backbone_3d.input_layer.posembed_layers.0.3.0.position_embedding_head.0",
+                                                            "backbone_3d.input_layer.posembed_layers.0.3.0.position_embedding_head.3",
+                                                            "backbone_3d.input_layer.posembed_layers.0.3.0.position_embedding_head.1"); 
     
       auto embed_layer_0_0_1 = fullyConnectedBnLELU_fullyConnected(network, weightMap, *window_partition_1->getOutput(5), POSEMBED_LAYBERS_OUT_FEATURES, PFN_LAYER_1_OUT_CHANNEL,
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.0.1.position_embedding_head.0",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.0.1.position_embedding_head.3",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.0.1.position_embedding_head.1"); 
+                                                            "backbone_3d.input_layer.posembed_layers.0.0.1.position_embedding_head.0",
+                                                            "backbone_3d.input_layer.posembed_layers.0.0.1.position_embedding_head.3",
+                                                            "backbone_3d.input_layer.posembed_layers.0.0.1.position_embedding_head.1"); 
     auto embed_layer_0_1_1 = fullyConnectedBnLELU_fullyConnected(network, weightMap, *window_partition_1->getOutput(5), POSEMBED_LAYBERS_OUT_FEATURES, PFN_LAYER_1_OUT_CHANNEL,
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.1.1.position_embedding_head.0",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.1.1.position_embedding_head.3",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.1.1.position_embedding_head.1"); 
+                                                            "backbone_3d.input_layer.posembed_layers.0.1.1.position_embedding_head.0",
+                                                            "backbone_3d.input_layer.posembed_layers.0.1.1.position_embedding_head.3",
+                                                            "backbone_3d.input_layer.posembed_layers.0.1.1.position_embedding_head.1"); 
     auto embed_layer_0_2_1 = fullyConnectedBnLELU_fullyConnected(network, weightMap, *window_partition_1->getOutput(5), POSEMBED_LAYBERS_OUT_FEATURES, PFN_LAYER_1_OUT_CHANNEL,
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.2.1.position_embedding_head.0",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.2.1.position_embedding_head.3",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.2.1.position_embedding_head.1"); 
+                                                            "backbone_3d.input_layer.posembed_layers.0.2.1.position_embedding_head.0",
+                                                            "backbone_3d.input_layer.posembed_layers.0.2.1.position_embedding_head.3",
+                                                            "backbone_3d.input_layer.posembed_layers.0.2.1.position_embedding_head.1"); 
            
     auto embed_layer_0_3_1 = fullyConnectedBnLELU_fullyConnected(network, weightMap, *window_partition_1->getOutput(5), POSEMBED_LAYBERS_OUT_FEATURES, PFN_LAYER_1_OUT_CHANNEL,
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.3.1.position_embedding_head.0",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.3.1.position_embedding_head.3",
-                                                            "module.backbone_3d.input_layer.posembed_layers.0.3.1.position_embedding_head.1"); 
+                                                            "backbone_3d.input_layer.posembed_layers.0.3.1.position_embedding_head.0",
+                                                            "backbone_3d.input_layer.posembed_layers.0.3.1.position_embedding_head.3",
+                                                            "backbone_3d.input_layer.posembed_layers.0.3.1.position_embedding_head.1"); 
 
    
 
@@ -656,9 +658,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     auto mulit_head_attention_0_0 = multHeadAttention(network,weightMap,*get_value_by_index_layer_0_0->getOutput(0),*get_value_by_index_layer_0_0->getOutput(1),
                                                                                                                     *get_value_by_index_layer_0_0->getOutput(2),*get_set_op_0->getOutput(3),POSEMBED_LAYBERS_OUT_FEATURES,
-                                                                                                                    "module.backbone_3d.stage_0.0.encoder_list.0.win_attn.self_attn.in_proj_weight",
-                                                                                                                    "module.backbone_3d.stage_0.0.encoder_list.0.win_attn.self_attn.in_proj_bias",
-                                                                                                                    "module.backbone_3d.stage_0.0.encoder_list.0.win_attn.self_attn.out_proj",NUM_HEADS);
+                                                                                                                    "backbone_3d.stage_0.0.encoder_list.0.win_attn.self_attn.in_proj_weight",
+                                                                                                                    "backbone_3d.stage_0.0.encoder_list.0.win_attn.self_attn.in_proj_bias",
+                                                                                                                    "backbone_3d.stage_0.0.encoder_list.0.win_attn.self_attn.out_proj",NUM_HEADS);
     
     auto map_set_feature2voxel_op_0_0 = add_map_set_feature2voxel_op(network,mulit_head_attention_0_0->getOutput(0),
                                                                                                         get_set_op_0->getOutput(0),get_set_op_0->getOutput(2),
@@ -670,8 +672,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     // multi_head_0_0_     src
     auto layer_norm_layer_0_0_1 = add_layer_norm_op(network, element_wise_add_0_0_1->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.0.encoder_list.0.win_attn.norm1.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.0.encoder_list.0.win_attn.norm1.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.0.encoder_list.0.win_attn.norm1.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.0.encoder_list.0.win_attn.norm1.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     
@@ -679,20 +681,20 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     // src2
     auto multi_head_0_0_linear_gelu_linear = fullyConnected_gelu_fullyConnected(network,weightMap,layer_norm_layer_0_0_1->getOutput(0),voxelGenerator->getOutput(4),
                                                                                             SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_1,SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_2,
-                                                                                            "module.backbone_3d.stage_0.0.encoder_list.0.win_attn.linear1",
-                                                                                            "module.backbone_3d.stage_0.0.encoder_list.0.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
+                                                                                            "backbone_3d.stage_0.0.encoder_list.0.win_attn.linear1",
+                                                                                            "backbone_3d.stage_0.0.encoder_list.0.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
      // src = src + src2
     auto element_wise_add_0_0_2 = network->addElementWise(*layer_norm_layer_0_0_1->getOutput(0),*multi_head_0_0_linear_gelu_linear->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
      auto layer_norm_layer_0_0_2 = add_layer_norm_op(network, element_wise_add_0_0_2->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.0.encoder_list.0.win_attn.norm2.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.0.encoder_list.0.win_attn.norm2.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.0.encoder_list.0.win_attn.norm2.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.0.encoder_list.0.win_attn.norm2.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     auto element_wise_add_0_0_last = network->addElementWise(*layer_norm_layer_0_0_2->getOutput(0),*torch_scatter_max_1->getOutput(1),nvinfer1::ElementWiseOperation::kSUM);
 
      auto layer_norm_layer_0_0_last = add_layer_norm_op(network, element_wise_add_0_0_last->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.0.encoder_list.0.norm.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.0.encoder_list.0.norm.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.0.encoder_list.0.norm.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.0.encoder_list.0.norm.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
    
@@ -706,9 +708,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
                                                                                                                                             1);
     auto mulit_head_attention_0_1 = multHeadAttention(network,weightMap,*get_value_by_index_layer_0_1->getOutput(0),*get_value_by_index_layer_0_1->getOutput(1),
                                                                                                                     *get_value_by_index_layer_0_1->getOutput(2),*get_set_op_0->getOutput(3),POSEMBED_LAYBERS_OUT_FEATURES,
-                                                                                                                    "module.backbone_3d.stage_0.0.encoder_list.1.win_attn.self_attn.in_proj_weight",
-                                                                                                                    "module.backbone_3d.stage_0.0.encoder_list.1.win_attn.self_attn.in_proj_bias",
-                                                                                                                    "module.backbone_3d.stage_0.0.encoder_list.1.win_attn.self_attn.out_proj",NUM_HEADS);
+                                                                                                                    "backbone_3d.stage_0.0.encoder_list.1.win_attn.self_attn.in_proj_weight",
+                                                                                                                    "backbone_3d.stage_0.0.encoder_list.1.win_attn.self_attn.in_proj_bias",
+                                                                                                                    "backbone_3d.stage_0.0.encoder_list.1.win_attn.self_attn.out_proj",NUM_HEADS);
 
     auto map_set_feature2voxel_op_0_1 = add_map_set_feature2voxel_op(network,mulit_head_attention_0_1->getOutput(0),
                                                                                                         get_set_op_0->getOutput(0),get_set_op_0->getOutput(2),
@@ -721,8 +723,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
       // multi_head_0_1_     src
     auto layer_norm_layer_0_1_1 = add_layer_norm_op(network, element_wise_add_0_1_1->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.0.encoder_list.1.win_attn.norm1.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.0.encoder_list.1.win_attn.norm1.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.0.encoder_list.1.win_attn.norm1.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.0.encoder_list.1.win_attn.norm1.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     
@@ -730,28 +732,28 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     // src2
     auto multi_head_0_1_linear_gelu_linear = fullyConnected_gelu_fullyConnected(network,weightMap,layer_norm_layer_0_1_1->getOutput(0),voxelGenerator->getOutput(4),
                                                                                             SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_1,SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_2,
-                                                                                            "module.backbone_3d.stage_0.0.encoder_list.1.win_attn.linear1",
-                                                                                            "module.backbone_3d.stage_0.0.encoder_list.1.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
+                                                                                            "backbone_3d.stage_0.0.encoder_list.1.win_attn.linear1",
+                                                                                            "backbone_3d.stage_0.0.encoder_list.1.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
      // src = src + src2
     auto element_wise_add_0_1_2 = network->addElementWise(*layer_norm_layer_0_1_1->getOutput(0),*multi_head_0_1_linear_gelu_linear->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
      auto layer_norm_layer_0_1_2 = add_layer_norm_op(network, element_wise_add_0_1_2->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.0.encoder_list.1.win_attn.norm2.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.0.encoder_list.1.win_attn.norm2.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.0.encoder_list.1.win_attn.norm2.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.0.encoder_list.1.win_attn.norm2.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     auto element_wise_add_0_1_last = network->addElementWise(*layer_norm_layer_0_1_2->getOutput(0),*layer_norm_layer_0_0_last->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 
      auto layer_norm_layer_0_1_last = add_layer_norm_op(network, element_wise_add_0_1_last->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.0.encoder_list.1.norm.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.0.encoder_list.1.norm.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.0.encoder_list.1.norm.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.0.encoder_list.1.norm.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
 
     auto element_wise_residual_layer_0 = network->addElementWise(*layer_norm_layer_0_1_last->getOutput(0),*torch_scatter_max_1->getOutput(1),nvinfer1::ElementWiseOperation::kSUM);
 
     auto layer_norm_residual_norm_layer_0 = add_layer_norm_op(network, element_wise_residual_layer_0->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.residual_norm_stage_0.0.weight"],
-                                                                                                                weightMap["module.backbone_3d.residual_norm_stage_0.0.bias"],
+                                                                                                                        weightMap["backbone_3d.residual_norm_stage_0.0.weight"],
+                                                                                                                weightMap["backbone_3d.residual_norm_stage_0.0.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
 
@@ -776,9 +778,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     auto mulit_head_attention_1_0 = multHeadAttention(network,weightMap,*get_value_by_index_layer_1_0->getOutput(0),*get_value_by_index_layer_1_0->getOutput(1),
                                                                                                                     *get_value_by_index_layer_1_0->getOutput(2),*get_set_op_1->getOutput(3),POSEMBED_LAYBERS_OUT_FEATURES,
-                                                                                                                    "module.backbone_3d.stage_0.1.encoder_list.0.win_attn.self_attn.in_proj_weight",
-                                                                                                                    "module.backbone_3d.stage_0.1.encoder_list.0.win_attn.self_attn.in_proj_bias",
-                                                                                                                    "module.backbone_3d.stage_0.1.encoder_list.0.win_attn.self_attn.out_proj",NUM_HEADS);
+                                                                                                                    "backbone_3d.stage_0.1.encoder_list.0.win_attn.self_attn.in_proj_weight",
+                                                                                                                    "backbone_3d.stage_0.1.encoder_list.0.win_attn.self_attn.in_proj_bias",
+                                                                                                                    "backbone_3d.stage_0.1.encoder_list.0.win_attn.self_attn.out_proj",NUM_HEADS);
     
     auto map_set_feature2voxel_op_1_0 = add_map_set_feature2voxel_op(network,mulit_head_attention_1_0->getOutput(0),
                                                                                                         get_set_op_1->getOutput(0),get_set_op_1->getOutput(2),
@@ -790,8 +792,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     // multi_head_1_0_     src
     auto layer_norm_layer_1_0_1 = add_layer_norm_op(network, element_wise_add_1_0_1->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.1.encoder_list.0.win_attn.norm1.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.1.encoder_list.0.win_attn.norm1.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.1.encoder_list.0.win_attn.norm1.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.1.encoder_list.0.win_attn.norm1.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     
@@ -799,20 +801,20 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     // src2
     auto multi_head_1_0_linear_gelu_linear = fullyConnected_gelu_fullyConnected(network,weightMap,layer_norm_layer_1_0_1->getOutput(0),voxelGenerator->getOutput(4),
                                                                                             SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_1,SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_2,
-                                                                                            "module.backbone_3d.stage_0.1.encoder_list.0.win_attn.linear1",
-                                                                                            "module.backbone_3d.stage_0.1.encoder_list.0.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
+                                                                                            "backbone_3d.stage_0.1.encoder_list.0.win_attn.linear1",
+                                                                                            "backbone_3d.stage_0.1.encoder_list.0.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
      // src = src + src2
     auto element_wise_add_1_0_2 = network->addElementWise(*layer_norm_layer_1_0_1->getOutput(0),*multi_head_1_0_linear_gelu_linear->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
      auto layer_norm_layer_1_0_2 = add_layer_norm_op(network, element_wise_add_1_0_2->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.1.encoder_list.0.win_attn.norm2.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.1.encoder_list.0.win_attn.norm2.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.1.encoder_list.0.win_attn.norm2.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.1.encoder_list.0.win_attn.norm2.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     auto element_wise_add_1_0_last = network->addElementWise(*layer_norm_layer_1_0_2->getOutput(0),*layer_norm_residual_norm_layer_0->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 
      auto layer_norm_layer_1_0_last = add_layer_norm_op(network, element_wise_add_1_0_last->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.1.encoder_list.0.norm.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.1.encoder_list.0.norm.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.1.encoder_list.0.norm.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.1.encoder_list.0.norm.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
    
@@ -826,9 +828,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
                                                                                                                                             1);
     auto mulit_head_attention_1_1 = multHeadAttention(network,weightMap,*get_value_by_index_layer_1_1->getOutput(0),*get_value_by_index_layer_1_1->getOutput(1),
                                                                                                                     *get_value_by_index_layer_1_1->getOutput(2),*get_set_op_1->getOutput(3),POSEMBED_LAYBERS_OUT_FEATURES,
-                                                                                                                    "module.backbone_3d.stage_0.1.encoder_list.1.win_attn.self_attn.in_proj_weight",
-                                                                                                                    "module.backbone_3d.stage_0.1.encoder_list.1.win_attn.self_attn.in_proj_bias",
-                                                                                                                    "module.backbone_3d.stage_0.1.encoder_list.1.win_attn.self_attn.out_proj",NUM_HEADS);
+                                                                                                                    "backbone_3d.stage_0.1.encoder_list.1.win_attn.self_attn.in_proj_weight",
+                                                                                                                    "backbone_3d.stage_0.1.encoder_list.1.win_attn.self_attn.in_proj_bias",
+                                                                                                                    "backbone_3d.stage_0.1.encoder_list.1.win_attn.self_attn.out_proj",NUM_HEADS);
 
     auto map_set_feature2voxel_op_1_1 = add_map_set_feature2voxel_op(network,mulit_head_attention_1_1->getOutput(0),
                                                                                                         get_set_op_1->getOutput(0),get_set_op_1->getOutput(2),
@@ -841,8 +843,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
       // multi_head_1_1_     src
     auto layer_norm_layer_1_1_1 = add_layer_norm_op(network, element_wise_add_1_1_1->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.1.encoder_list.1.win_attn.norm1.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.1.encoder_list.1.win_attn.norm1.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.1.encoder_list.1.win_attn.norm1.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.1.encoder_list.1.win_attn.norm1.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     
@@ -850,28 +852,28 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     // src2
     auto multi_head_1_1_linear_gelu_linear = fullyConnected_gelu_fullyConnected(network,weightMap,layer_norm_layer_1_1_1->getOutput(0),voxelGenerator->getOutput(4),
                                                                                             SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_1,SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_2,
-                                                                                            "module.backbone_3d.stage_0.1.encoder_list.1.win_attn.linear1",
-                                                                                            "module.backbone_3d.stage_0.1.encoder_list.1.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
+                                                                                            "backbone_3d.stage_0.1.encoder_list.1.win_attn.linear1",
+                                                                                            "backbone_3d.stage_0.1.encoder_list.1.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
      // src = src + src2
     auto element_wise_add_1_1_2 = network->addElementWise(*layer_norm_layer_1_1_1->getOutput(0),*multi_head_1_1_linear_gelu_linear->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
      auto layer_norm_layer_1_1_2 = add_layer_norm_op(network, element_wise_add_1_1_2->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.1.encoder_list.1.win_attn.norm2.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.1.encoder_list.1.win_attn.norm2.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.1.encoder_list.1.win_attn.norm2.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.1.encoder_list.1.win_attn.norm2.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     auto element_wise_add_1_1_last = network->addElementWise(*layer_norm_layer_1_1_2->getOutput(0),*layer_norm_layer_1_0_last->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 
      auto layer_norm_layer_1_1_last = add_layer_norm_op(network, element_wise_add_1_1_last->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.1.encoder_list.1.norm.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.1.encoder_list.1.norm.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.1.encoder_list.1.norm.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.1.encoder_list.1.norm.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
 
     auto element_wise_residual_layer_1 = network->addElementWise(*layer_norm_layer_1_1_last->getOutput(0),*layer_norm_residual_norm_layer_0->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 
     auto layer_norm_residual_norm_layer_1 = add_layer_norm_op(network, element_wise_residual_layer_1->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.residual_norm_stage_0.1.weight"],
-                                                                                                                weightMap["module.backbone_3d.residual_norm_stage_0.1.bias"],
+                                                                                                                        weightMap["backbone_3d.residual_norm_stage_0.1.weight"],
+                                                                                                                weightMap["backbone_3d.residual_norm_stage_0.1.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
 
@@ -899,9 +901,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     auto mulit_head_attention_2_0 = multHeadAttention(network,weightMap,*get_value_by_index_layer_2_0->getOutput(0),*get_value_by_index_layer_2_0->getOutput(1),
                                                                                                                     *get_value_by_index_layer_2_0->getOutput(2),*get_set_op_0->getOutput(3),POSEMBED_LAYBERS_OUT_FEATURES,
-                                                                                                                    "module.backbone_3d.stage_0.2.encoder_list.0.win_attn.self_attn.in_proj_weight",
-                                                                                                                    "module.backbone_3d.stage_0.2.encoder_list.0.win_attn.self_attn.in_proj_bias",
-                                                                                                                    "module.backbone_3d.stage_0.2.encoder_list.0.win_attn.self_attn.out_proj",NUM_HEADS);
+                                                                                                                    "backbone_3d.stage_0.2.encoder_list.0.win_attn.self_attn.in_proj_weight",
+                                                                                                                    "backbone_3d.stage_0.2.encoder_list.0.win_attn.self_attn.in_proj_bias",
+                                                                                                                    "backbone_3d.stage_0.2.encoder_list.0.win_attn.self_attn.out_proj",NUM_HEADS);
     
     auto map_set_feature2voxel_op_2_0 = add_map_set_feature2voxel_op(network,mulit_head_attention_2_0->getOutput(0),
                                                                                                         get_set_op_0->getOutput(0),get_set_op_0->getOutput(2),
@@ -913,8 +915,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     // multi_head_2_0_     src
     auto layer_norm_layer_2_0_1 = add_layer_norm_op(network, element_wise_add_2_0_1->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.2.encoder_list.0.win_attn.norm1.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.2.encoder_list.0.win_attn.norm1.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.2.encoder_list.0.win_attn.norm1.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.2.encoder_list.0.win_attn.norm1.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     
@@ -922,20 +924,20 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     // src2
     auto multi_head_2_0_linear_gelu_linear = fullyConnected_gelu_fullyConnected(network,weightMap,layer_norm_layer_2_0_1->getOutput(0),voxelGenerator->getOutput(4),
                                                                                             SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_1,SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_2,
-                                                                                            "module.backbone_3d.stage_0.2.encoder_list.0.win_attn.linear1",
-                                                                                            "module.backbone_3d.stage_0.2.encoder_list.0.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
+                                                                                            "backbone_3d.stage_0.2.encoder_list.0.win_attn.linear1",
+                                                                                            "backbone_3d.stage_0.2.encoder_list.0.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
      // src = src + src2
     auto element_wise_add_2_0_2 = network->addElementWise(*layer_norm_layer_2_0_1->getOutput(0),*multi_head_2_0_linear_gelu_linear->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
      auto layer_norm_layer_2_0_2 = add_layer_norm_op(network, element_wise_add_2_0_2->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.2.encoder_list.0.win_attn.norm2.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.2.encoder_list.0.win_attn.norm2.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.2.encoder_list.0.win_attn.norm2.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.2.encoder_list.0.win_attn.norm2.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     auto element_wise_add_2_0_last = network->addElementWise(*layer_norm_layer_2_0_2->getOutput(0),*layer_norm_residual_norm_layer_1->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 
      auto layer_norm_layer_2_0_last = add_layer_norm_op(network, element_wise_add_2_0_last->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.2.encoder_list.0.norm.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.2.encoder_list.0.norm.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.2.encoder_list.0.norm.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.2.encoder_list.0.norm.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
    
@@ -949,9 +951,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
                                                                                                                                             1);
     auto mulit_head_attention_2_1 = multHeadAttention(network,weightMap,*get_value_by_index_layer_2_1->getOutput(0),*get_value_by_index_layer_2_1->getOutput(1),
                                                                                                                     *get_value_by_index_layer_2_1->getOutput(2),*get_set_op_0->getOutput(3),POSEMBED_LAYBERS_OUT_FEATURES,
-                                                                                                                    "module.backbone_3d.stage_0.2.encoder_list.1.win_attn.self_attn.in_proj_weight",
-                                                                                                                    "module.backbone_3d.stage_0.2.encoder_list.1.win_attn.self_attn.in_proj_bias",
-                                                                                                                    "module.backbone_3d.stage_0.2.encoder_list.1.win_attn.self_attn.out_proj",NUM_HEADS);
+                                                                                                                    "backbone_3d.stage_0.2.encoder_list.1.win_attn.self_attn.in_proj_weight",
+                                                                                                                    "backbone_3d.stage_0.2.encoder_list.1.win_attn.self_attn.in_proj_bias",
+                                                                                                                    "backbone_3d.stage_0.2.encoder_list.1.win_attn.self_attn.out_proj",NUM_HEADS);
 
     auto map_set_feature2voxel_op_2_1 = add_map_set_feature2voxel_op(network,mulit_head_attention_2_1->getOutput(0),
                                                                                                         get_set_op_0->getOutput(0),get_set_op_0->getOutput(2),
@@ -964,8 +966,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
       // multi_head_2_1_     src
     auto layer_norm_layer_2_1_1 = add_layer_norm_op(network, element_wise_add_2_1_1->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.2.encoder_list.1.win_attn.norm1.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.2.encoder_list.1.win_attn.norm1.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.2.encoder_list.1.win_attn.norm1.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.2.encoder_list.1.win_attn.norm1.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     
@@ -973,28 +975,28 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     // src2
     auto multi_head_2_1_linear_gelu_linear = fullyConnected_gelu_fullyConnected(network,weightMap,layer_norm_layer_2_1_1->getOutput(0),voxelGenerator->getOutput(4),
                                                                                             SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_1,SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_2,
-                                                                                            "module.backbone_3d.stage_0.2.encoder_list.1.win_attn.linear1",
-                                                                                            "module.backbone_3d.stage_0.2.encoder_list.1.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
+                                                                                            "backbone_3d.stage_0.2.encoder_list.1.win_attn.linear1",
+                                                                                            "backbone_3d.stage_0.2.encoder_list.1.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
      // src = src + src2
     auto element_wise_add_2_1_2 = network->addElementWise(*layer_norm_layer_2_1_1->getOutput(0),*multi_head_2_1_linear_gelu_linear->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
      auto layer_norm_layer_2_1_2 = add_layer_norm_op(network, element_wise_add_2_1_2->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.2.encoder_list.1.win_attn.norm2.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.2.encoder_list.1.win_attn.norm2.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.2.encoder_list.1.win_attn.norm2.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.2.encoder_list.1.win_attn.norm2.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     auto element_wise_add_2_1_last = network->addElementWise(*layer_norm_layer_2_1_2->getOutput(0),*layer_norm_layer_2_0_last->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 
      auto layer_norm_layer_2_1_last = add_layer_norm_op(network, element_wise_add_2_1_last->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.2.encoder_list.1.norm.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.2.encoder_list.1.norm.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.2.encoder_list.1.norm.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.2.encoder_list.1.norm.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
 
     auto element_wise_residual_layer_2 = network->addElementWise(*layer_norm_layer_2_1_last->getOutput(0),*layer_norm_residual_norm_layer_1->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 
     auto layer_norm_residual_norm_layer_2 = add_layer_norm_op(network, element_wise_residual_layer_2->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.residual_norm_stage_0.2.weight"],
-                                                                                                                weightMap["module.backbone_3d.residual_norm_stage_0.2.bias"],
+                                                                                                                        weightMap["backbone_3d.residual_norm_stage_0.2.weight"],
+                                                                                                                weightMap["backbone_3d.residual_norm_stage_0.2.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
 
@@ -1020,9 +1022,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     auto mulit_head_attention_3_0 = multHeadAttention(network,weightMap,*get_value_by_index_layer_3_0->getOutput(0),*get_value_by_index_layer_3_0->getOutput(1),
                                                                                                                     *get_value_by_index_layer_3_0->getOutput(2),*get_set_op_1->getOutput(3),POSEMBED_LAYBERS_OUT_FEATURES,
-                                                                                                                    "module.backbone_3d.stage_0.3.encoder_list.0.win_attn.self_attn.in_proj_weight",
-                                                                                                                    "module.backbone_3d.stage_0.3.encoder_list.0.win_attn.self_attn.in_proj_bias",
-                                                                                                                    "module.backbone_3d.stage_0.3.encoder_list.0.win_attn.self_attn.out_proj",NUM_HEADS);
+                                                                                                                    "backbone_3d.stage_0.3.encoder_list.0.win_attn.self_attn.in_proj_weight",
+                                                                                                                    "backbone_3d.stage_0.3.encoder_list.0.win_attn.self_attn.in_proj_bias",
+                                                                                                                    "backbone_3d.stage_0.3.encoder_list.0.win_attn.self_attn.out_proj",NUM_HEADS);
     
     auto map_set_feature2voxel_op_3_0 = add_map_set_feature2voxel_op(network,mulit_head_attention_3_0->getOutput(0),
                                                                                                         get_set_op_1->getOutput(0),get_set_op_1->getOutput(2),
@@ -1034,8 +1036,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
     // multi_head_3_0_     src
     auto layer_norm_layer_3_0_1 = add_layer_norm_op(network, element_wise_add_3_0_1->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.3.encoder_list.0.win_attn.norm1.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.3.encoder_list.0.win_attn.norm1.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.3.encoder_list.0.win_attn.norm1.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.3.encoder_list.0.win_attn.norm1.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     
@@ -1043,20 +1045,20 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     // src2
     auto multi_head_3_0_linear_gelu_linear = fullyConnected_gelu_fullyConnected(network,weightMap,layer_norm_layer_3_0_1->getOutput(0),voxelGenerator->getOutput(4),
                                                                                             SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_1,SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_2,
-                                                                                            "module.backbone_3d.stage_0.3.encoder_list.0.win_attn.linear1",
-                                                                                            "module.backbone_3d.stage_0.3.encoder_list.0.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
+                                                                                            "backbone_3d.stage_0.3.encoder_list.0.win_attn.linear1",
+                                                                                            "backbone_3d.stage_0.3.encoder_list.0.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
      // src = src + src2
     auto element_wise_add_3_0_2 = network->addElementWise(*layer_norm_layer_3_0_1->getOutput(0),*multi_head_3_0_linear_gelu_linear->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
      auto layer_norm_layer_3_0_2 = add_layer_norm_op(network, element_wise_add_3_0_2->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.3.encoder_list.0.win_attn.norm2.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.3.encoder_list.0.win_attn.norm2.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.3.encoder_list.0.win_attn.norm2.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.3.encoder_list.0.win_attn.norm2.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     auto element_wise_add_3_0_last = network->addElementWise(*layer_norm_layer_3_0_2->getOutput(0),*layer_norm_residual_norm_layer_2->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 
      auto layer_norm_layer_3_0_last = add_layer_norm_op(network, element_wise_add_3_0_last->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.3.encoder_list.0.norm.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.3.encoder_list.0.norm.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.3.encoder_list.0.norm.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.3.encoder_list.0.norm.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
    
@@ -1070,9 +1072,9 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
                                                                                                                                             1);
     auto mulit_head_attention_3_1 = multHeadAttention(network,weightMap,*get_value_by_index_layer_3_1->getOutput(0),*get_value_by_index_layer_3_1->getOutput(1),
                                                                                                                     *get_value_by_index_layer_3_1->getOutput(2),*get_set_op_1->getOutput(3),POSEMBED_LAYBERS_OUT_FEATURES,
-                                                                                                                    "module.backbone_3d.stage_0.3.encoder_list.1.win_attn.self_attn.in_proj_weight",
-                                                                                                                    "module.backbone_3d.stage_0.3.encoder_list.1.win_attn.self_attn.in_proj_bias",
-                                                                                                                    "module.backbone_3d.stage_0.3.encoder_list.1.win_attn.self_attn.out_proj",NUM_HEADS);
+                                                                                                                    "backbone_3d.stage_0.3.encoder_list.1.win_attn.self_attn.in_proj_weight",
+                                                                                                                    "backbone_3d.stage_0.3.encoder_list.1.win_attn.self_attn.in_proj_bias",
+                                                                                                                    "backbone_3d.stage_0.3.encoder_list.1.win_attn.self_attn.out_proj",NUM_HEADS);
 
     auto map_set_feature2voxel_op_3_1 = add_map_set_feature2voxel_op(network,mulit_head_attention_3_1->getOutput(0),
                                                                                                         get_set_op_1->getOutput(0),get_set_op_1->getOutput(2),
@@ -1085,8 +1087,8 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
 
       // multi_head_3_1_     src
     auto layer_norm_layer_3_1_1 = add_layer_norm_op(network, element_wise_add_3_1_1->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.3.encoder_list.1.win_attn.norm1.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.3.encoder_list.1.win_attn.norm1.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.3.encoder_list.1.win_attn.norm1.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.3.encoder_list.1.win_attn.norm1.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     
@@ -1094,28 +1096,28 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     // src2
     auto multi_head_3_1_linear_gelu_linear = fullyConnected_gelu_fullyConnected(network,weightMap,layer_norm_layer_3_1_1->getOutput(0),voxelGenerator->getOutput(4),
                                                                                             SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_1,SET_ATTENTION_0_0_OUT_CHANNEL_LINEAR_2,
-                                                                                            "module.backbone_3d.stage_0.3.encoder_list.1.win_attn.linear1",
-                                                                                            "module.backbone_3d.stage_0.3.encoder_list.1.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
+                                                                                            "backbone_3d.stage_0.3.encoder_list.1.win_attn.linear1",
+                                                                                            "backbone_3d.stage_0.3.encoder_list.1.win_attn.linear2", MAX_PILLARS_NUM,SET_ATTENTION_0_0_GELU_OUT_CHANNEL);
      // src = src + src2
     auto element_wise_add_3_1_2 = network->addElementWise(*layer_norm_layer_3_1_1->getOutput(0),*multi_head_3_1_linear_gelu_linear->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
      auto layer_norm_layer_3_1_2 = add_layer_norm_op(network, element_wise_add_3_1_2->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.3.encoder_list.1.win_attn.norm2.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.3.encoder_list.1.win_attn.norm2.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.3.encoder_list.1.win_attn.norm2.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.3.encoder_list.1.win_attn.norm2.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
     auto element_wise_add_3_1_last = network->addElementWise(*layer_norm_layer_3_1_2->getOutput(0),*layer_norm_layer_3_0_last->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 
      auto layer_norm_layer_3_1_last = add_layer_norm_op(network, element_wise_add_3_1_last->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.stage_0.3.encoder_list.1.norm.weight"],
-                                                                                                                weightMap["module.backbone_3d.stage_0.3.encoder_list.1.norm.bias"],
+                                                                                                                        weightMap["backbone_3d.stage_0.3.encoder_list.1.norm.weight"],
+                                                                                                                weightMap["backbone_3d.stage_0.3.encoder_list.1.norm.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
 
     auto element_wise_residual_layer_3 = network->addElementWise(*layer_norm_layer_3_1_last->getOutput(0),*layer_norm_residual_norm_layer_2->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 
     auto layer_norm_residual_norm_layer_3 = add_layer_norm_op(network, element_wise_residual_layer_3->getOutput(0),voxelGenerator->getOutput(4),
-                                                                                                                        weightMap["module.backbone_3d.residual_norm_stage_0.3.weight"],
-                                                                                                                weightMap["module.backbone_3d.residual_norm_stage_0.3.bias"],
+                                                                                                                        weightMap["backbone_3d.residual_norm_stage_0.3.weight"],
+                                                                                                                weightMap["backbone_3d.residual_norm_stage_0.3.bias"],
                                                                                                                  MAX_PILLARS_NUM,POSEMBED_LAYBERS_OUT_FEATURES,POSEMBED_LAYBERS_OUT_FEATURES,
                                                                                                                 EPS);
 
@@ -1146,22 +1148,22 @@ auto backbone2d_block_0_0_1 = convBnLELU(network,weightMap,*map2bev_op_transpose
                                                                                                        BACKBONE_2D_BLOCK_0_0_1_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_0_0_1_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_0_0_1_PADDING,
-                                                                                                       "module.backbone_2d.blocks.0.0.conv1",
-                                                                                                       "module.backbone_2d.blocks.0.0.bn1" );
+                                                                                                       "backbone_2d.blocks.0.0.conv1",
+                                                                                                       "backbone_2d.blocks.0.0.bn1" );
 auto backbone2d_block_0_0_2 = convBn(network,weightMap,*backbone2d_block_0_0_1->getOutput(0),    // 
                                                                                                        BACKBONE_2D_BLOCK_0_0_2_OUT_CHANNEL,
                                                                                                        BACKBONE_2D_BLOCK_0_0_2_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_0_0_2_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_0_0_2_PADDING,
-                                                                                                       "module.backbone_2d.blocks.0.0.conv2",
-                                                                                                       "module.backbone_2d.blocks.0.0.bn2");
+                                                                                                       "backbone_2d.blocks.0.0.conv2",
+                                                                                                       "backbone_2d.blocks.0.0.bn2");
 auto backbone2d_block_0_0_downsample_layer = convBn(network,weightMap,*map2bev_op_transpose->getOutput(0),
                                                                                                        BACKBONE_2D_BLOCK_0_0_DOWNSAMPLE_LAYER_OUT_CHANNEL,
                                                                                                        BACKBONE_2D_BLOCK_0_0_DOWNSAMPLE_LAYER_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_0_0_DOWNSAMPLE_LAYER_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_0_0_DOWNSAMPLE_LAYER_PADDING,
-                                                                                                       "module.backbone_2d.blocks.0.0.downsample_layer.0",
-                                                                                                       "module.backbone_2d.blocks.0.0.downsample_layer.1");
+                                                                                                       "backbone_2d.blocks.0.0.downsample_layer.0",
+                                                                                                       "backbone_2d.blocks.0.0.downsample_layer.1");
 auto element_wise_backbone2d_block_0_0 = network->addElementWise(*backbone2d_block_0_0_2->getOutput(0),*backbone2d_block_0_0_downsample_layer->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 auto  relu_backbone2d_block_0_0= network->addActivation(*element_wise_backbone2d_block_0_0->getOutput(0), ActivationType::kRELU);
 relu_backbone2d_block_0_0->setAlpha(1e-8);
@@ -1172,16 +1174,16 @@ auto backbone2d_block_0_1_1 = convBnLELU(network,weightMap,*relu_backbone2d_bloc
                                                                                                        BACKBONE_2D_BLOCK_0_1_1_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_0_1_1_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_0_1_1_PADDING,
-                                                                                                       "module.backbone_2d.blocks.0.1.conv1",
-                                                                                                       "module.backbone_2d.blocks.0.1.bn1" );
+                                                                                                       "backbone_2d.blocks.0.1.conv1",
+                                                                                                       "backbone_2d.blocks.0.1.bn1" );
 
 auto backbone2d_block_0_1_2 = convBn(network,weightMap,*backbone2d_block_0_1_1->getOutput(0),    // 
                                                                                                        BACKBONE_2D_BLOCK_0_1_2_OUT_CHANNEL,
                                                                                                        BACKBONE_2D_BLOCK_0_1_2_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_0_1_2_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_0_1_2_PADDING,
-                                                                                                       "module.backbone_2d.blocks.0.1.conv2",
-                                                                                                       "module.backbone_2d.blocks.0.1.bn2");
+                                                                                                       "backbone_2d.blocks.0.1.conv2",
+                                                                                                       "backbone_2d.blocks.0.1.bn2");
 auto element_wise_backbone2d_block_0_1 = network->addElementWise(*backbone2d_block_0_1_2->getOutput(0),*relu_backbone2d_block_0_0->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 auto  relu_backbone2d_block_0_1= network->addActivation(*element_wise_backbone2d_block_0_1->getOutput(0), ActivationType::kRELU);
 relu_backbone2d_block_0_1->setAlpha(1e-8);
@@ -1192,8 +1194,8 @@ auto backbone2d_deblock_0  = deconvBnLELU(network,weightMap,*relu_backbone2d_blo
                                                                                                     BACKBONE_2D_BLOCK_0_DECONV_KERNEL_SIZE,
                                                                                                     BACKBONE_2D_BLOCK_0_DECONV_STRIDE,
                                                                                                     BACKBONE_2D_BLOCK_0_DECONV_PADDING,
-                                                                                                    "module.backbone_2d.deblocks.0.0",
-                                                                                                    "module.backbone_2d.deblocks.0.1");
+                                                                                                    "backbone_2d.deblocks.0.0",
+                                                                                                    "backbone_2d.deblocks.0.1");
 
 /*
       backbone_2d   block_1
@@ -1205,22 +1207,22 @@ auto backbone2d_block_1_0_1 = convBnLELU(network,weightMap,*relu_backbone2d_bloc
                                                                                                        BACKBONE_2D_BLOCK_1_0_1_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_1_0_1_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_1_0_1_PADDING,
-                                                                                                       "module.backbone_2d.blocks.1.0.conv1",
-                                                                                                       "module.backbone_2d.blocks.1.0.bn1" );
+                                                                                                       "backbone_2d.blocks.1.0.conv1",
+                                                                                                       "backbone_2d.blocks.1.0.bn1" );
 auto backbone2d_block_1_0_2 = convBn(network,weightMap,*backbone2d_block_1_0_1->getOutput(0),    // 
                                                                                                        BACKBONE_2D_BLOCK_1_0_2_OUT_CHANNEL,
                                                                                                        BACKBONE_2D_BLOCK_1_0_2_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_1_0_2_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_1_0_2_PADDING,
-                                                                                                       "module.backbone_2d.blocks.1.0.conv2",
-                                                                                                       "module.backbone_2d.blocks.1.0.bn2");
+                                                                                                       "backbone_2d.blocks.1.0.conv2",
+                                                                                                       "backbone_2d.blocks.1.0.bn2");
 auto backbone2d_block_1_0_downsample_layer = convBn(network,weightMap,*relu_backbone2d_block_0_1->getOutput(0),
                                                                                                        BACKBONE_2D_BLOCK_1_0_DOWNSAMPLE_LAYER_OUT_CHANNEL,
                                                                                                        BACKBONE_2D_BLOCK_1_0_DOWNSAMPLE_LAYER_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_1_0_DOWNSAMPLE_LAYER_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_1_0_DOWNSAMPLE_LAYER_PADDING,
-                                                                                                       "module.backbone_2d.blocks.1.0.downsample_layer.0",
-                                                                                                       "module.backbone_2d.blocks.1.0.downsample_layer.1");
+                                                                                                       "backbone_2d.blocks.1.0.downsample_layer.0",
+                                                                                                       "backbone_2d.blocks.1.0.downsample_layer.1");
 auto element_wise_backbone2d_block_1_0 = network->addElementWise(*backbone2d_block_1_0_2->getOutput(0),*backbone2d_block_1_0_downsample_layer->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 auto  relu_backbone2d_block_1_0= network->addActivation(*element_wise_backbone2d_block_1_0->getOutput(0), ActivationType::kRELU);
 relu_backbone2d_block_1_0->setAlpha(1e-8);
@@ -1232,16 +1234,16 @@ auto backbone2d_block_1_1_1 = convBnLELU(network,weightMap,*relu_backbone2d_bloc
                                                                                                        BACKBONE_2D_BLOCK_1_1_1_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_1_1_1_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_1_1_1_PADDING,
-                                                                                                       "module.backbone_2d.blocks.1.1.conv1",
-                                                                                                       "module.backbone_2d.blocks.1.1.bn1" );
+                                                                                                       "backbone_2d.blocks.1.1.conv1",
+                                                                                                       "backbone_2d.blocks.1.1.bn1" );
 
 auto backbone2d_block_1_1_2 = convBn(network,weightMap,*backbone2d_block_1_1_1->getOutput(0),    // 
                                                                                                        BACKBONE_2D_BLOCK_1_1_2_OUT_CHANNEL,
                                                                                                        BACKBONE_2D_BLOCK_1_1_2_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_1_1_2_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_1_1_2_PADDING,
-                                                                                                       "module.backbone_2d.blocks.1.1.conv2",
-                                                                                                       "module.backbone_2d.blocks.1.1.bn2");
+                                                                                                       "backbone_2d.blocks.1.1.conv2",
+                                                                                                       "backbone_2d.blocks.1.1.bn2");
 auto element_wise_backbone2d_block_1_1 = network->addElementWise(*backbone2d_block_1_1_2->getOutput(0),*relu_backbone2d_block_1_0->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 auto  relu_backbone2d_block_1_1= network->addActivation(*element_wise_backbone2d_block_1_1->getOutput(0), ActivationType::kRELU);
 relu_backbone2d_block_1_1->setAlpha(1e-8);
@@ -1253,16 +1255,16 @@ auto backbone2d_block_1_2_1 = convBnLELU(network,weightMap,*relu_backbone2d_bloc
                                                                                                        BACKBONE_2D_BLOCK_1_2_1_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_1_2_1_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_1_2_1_PADDING,
-                                                                                                       "module.backbone_2d.blocks.1.2.conv1",
-                                                                                                       "module.backbone_2d.blocks.1.2.bn1" );
+                                                                                                       "backbone_2d.blocks.1.2.conv1",
+                                                                                                       "backbone_2d.blocks.1.2.bn1" );
 
 auto backbone2d_block_1_2_2 = convBn(network,weightMap,*backbone2d_block_1_2_1->getOutput(0),    // 
                                                                                                        BACKBONE_2D_BLOCK_1_2_2_OUT_CHANNEL,
                                                                                                        BACKBONE_2D_BLOCK_1_2_2_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_1_2_2_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_1_2_2_PADDING,
-                                                                                                       "module.backbone_2d.blocks.1.2.conv2",
-                                                                                                       "module.backbone_2d.blocks.1.2.bn2");
+                                                                                                       "backbone_2d.blocks.1.2.conv2",
+                                                                                                       "backbone_2d.blocks.1.2.bn2");
 auto element_wise_backbone2d_block_1_2 = network->addElementWise(*backbone2d_block_1_2_2->getOutput(0),*relu_backbone2d_block_1_1->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 auto  relu_backbone2d_block_1_2= network->addActivation(*element_wise_backbone2d_block_1_2->getOutput(0), ActivationType::kRELU);
 relu_backbone2d_block_1_2->setAlpha(1e-8);
@@ -1273,8 +1275,8 @@ auto backbone2d_deblock_1  = deconvBnLELU(network,weightMap,*relu_backbone2d_blo
                                                                                                     BACKBONE_2D_BLOCK_1_DECONV_KERNEL_SIZE,
                                                                                                     BACKBONE_2D_BLOCK_1_DECONV_STRIDE,
                                                                                                     BACKBONE_2D_BLOCK_1_DECONV_PADDING,
-                                                                                                    "module.backbone_2d.deblocks.1.0",
-                                                                                                    "module.backbone_2d.deblocks.1.1");
+                                                                                                    "backbone_2d.deblocks.1.0",
+                                                                                                    "backbone_2d.deblocks.1.1");
 
 
 
@@ -1288,22 +1290,22 @@ auto backbone2d_block_2_0_1 = convBnLELU(network,weightMap,*relu_backbone2d_bloc
                                                                                                        BACKBONE_2D_BLOCK_2_0_1_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_2_0_1_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_2_0_1_PADDING,
-                                                                                                       "module.backbone_2d.blocks.2.0.conv1",
-                                                                                                       "module.backbone_2d.blocks.2.0.bn1" );
+                                                                                                       "backbone_2d.blocks.2.0.conv1",
+                                                                                                       "backbone_2d.blocks.2.0.bn1" );
 auto backbone2d_block_2_0_2 = convBn(network,weightMap,*backbone2d_block_2_0_1->getOutput(0),    // 
                                                                                                        BACKBONE_2D_BLOCK_2_0_2_OUT_CHANNEL,
                                                                                                        BACKBONE_2D_BLOCK_2_0_2_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_2_0_2_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_2_0_2_PADDING,
-                                                                                                       "module.backbone_2d.blocks.2.0.conv2",
-                                                                                                       "module.backbone_2d.blocks.2.0.bn2");
+                                                                                                       "backbone_2d.blocks.2.0.conv2",
+                                                                                                       "backbone_2d.blocks.2.0.bn2");
 auto backbone2d_block_2_0_downsample_layer = convBn(network,weightMap,*relu_backbone2d_block_1_2->getOutput(0),
                                                                                                        BACKBONE_2D_BLOCK_2_0_DOWNSAMPLE_LAYER_OUT_CHANNEL,
                                                                                                        BACKBONE_2D_BLOCK_2_0_DOWNSAMPLE_LAYER_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_2_0_DOWNSAMPLE_LAYER_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_2_0_DOWNSAMPLE_LAYER_PADDING,
-                                                                                                       "module.backbone_2d.blocks.2.0.downsample_layer.0",
-                                                                                                       "module.backbone_2d.blocks.2.0.downsample_layer.1");
+                                                                                                       "backbone_2d.blocks.2.0.downsample_layer.0",
+                                                                                                       "backbone_2d.blocks.2.0.downsample_layer.1");
 auto element_wise_backbone2d_block_2_0 = network->addElementWise(*backbone2d_block_2_0_2->getOutput(0),*backbone2d_block_2_0_downsample_layer->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 auto  relu_backbone2d_block_2_0= network->addActivation(*element_wise_backbone2d_block_2_0->getOutput(0), ActivationType::kRELU);
 relu_backbone2d_block_2_0->setAlpha(1e-8);
@@ -1315,16 +1317,16 @@ auto backbone2d_block_2_1_1 = convBnLELU(network,weightMap,*relu_backbone2d_bloc
                                                                                                        BACKBONE_2D_BLOCK_2_1_1_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_2_1_1_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_2_1_1_PADDING,
-                                                                                                       "module.backbone_2d.blocks.2.1.conv1",
-                                                                                                       "module.backbone_2d.blocks.2.1.bn1" );
+                                                                                                       "backbone_2d.blocks.2.1.conv1",
+                                                                                                       "backbone_2d.blocks.2.1.bn1" );
 
 auto backbone2d_block_2_1_2 = convBn(network,weightMap,*backbone2d_block_2_1_1->getOutput(0),    // 
                                                                                                        BACKBONE_2D_BLOCK_2_1_2_OUT_CHANNEL,
                                                                                                        BACKBONE_2D_BLOCK_2_1_2_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_2_1_2_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_2_1_2_PADDING,
-                                                                                                       "module.backbone_2d.blocks.2.1.conv2",
-                                                                                                       "module.backbone_2d.blocks.2.1.bn2");
+                                                                                                       "backbone_2d.blocks.2.1.conv2",
+                                                                                                       "backbone_2d.blocks.2.1.bn2");
 auto element_wise_backbone2d_block_2_1 = network->addElementWise(*backbone2d_block_2_1_2->getOutput(0),*relu_backbone2d_block_2_0->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 auto  relu_backbone2d_block_2_1= network->addActivation(*element_wise_backbone2d_block_2_1->getOutput(0), ActivationType::kRELU);
 relu_backbone2d_block_2_1->setAlpha(1e-8);
@@ -1336,16 +1338,16 @@ auto backbone2d_block_2_2_1 = convBnLELU(network,weightMap,*relu_backbone2d_bloc
                                                                                                        BACKBONE_2D_BLOCK_2_2_1_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_2_2_1_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_2_2_1_PADDING,
-                                                                                                       "module.backbone_2d.blocks.2.2.conv1",
-                                                                                                       "module.backbone_2d.blocks.2.2.bn1" );
+                                                                                                       "backbone_2d.blocks.2.2.conv1",
+                                                                                                       "backbone_2d.blocks.2.2.bn1" );
 
 auto backbone2d_block_2_2_2 = convBn(network,weightMap,*backbone2d_block_2_2_1->getOutput(0),    // 
                                                                                                        BACKBONE_2D_BLOCK_2_2_2_OUT_CHANNEL,
                                                                                                        BACKBONE_2D_BLOCK_2_2_2_KERNEL_SIZE,
                                                                                                        BACKBONE_2D_BLOCK_2_2_2_STRIDE,
                                                                                                        BACKBONE_2D_BLOCK_2_2_2_PADDING,
-                                                                                                       "module.backbone_2d.blocks.2.2.conv2",
-                                                                                                       "module.backbone_2d.blocks.2.2.bn2");
+                                                                                                       "backbone_2d.blocks.2.2.conv2",
+                                                                                                       "backbone_2d.blocks.2.2.bn2");
 auto element_wise_backbone2d_block_2_2 = network->addElementWise(*backbone2d_block_2_2_2->getOutput(0),*relu_backbone2d_block_2_1->getOutput(0),nvinfer1::ElementWiseOperation::kSUM);
 auto  relu_backbone2d_block_2_2= network->addActivation(*element_wise_backbone2d_block_2_2->getOutput(0), ActivationType::kRELU);
 relu_backbone2d_block_2_2->setAlpha(1e-8);
@@ -1356,8 +1358,8 @@ auto backbone2d_deblock_2  = deconvBnLELU(network,weightMap,*relu_backbone2d_blo
                                                                                                     BACKBONE_2D_BLOCK_2_DECONV_KERNEL_SIZE,
                                                                                                     BACKBONE_2D_BLOCK_2_DECONV_STRIDE,
                                                                                                     BACKBONE_2D_BLOCK_2_DECONV_PADDING,
-                                                                                                    "module.backbone_2d.deblocks.2.0",
-                                                                                                    "module.backbone_2d.deblocks.2.1");
+                                                                                                    "backbone_2d.deblocks.2.0",
+                                                                                                    "backbone_2d.deblocks.2.1");
 
     ITensor* backbone2d_inputTensors[] = {backbone2d_deblock_0->getOutput(0), backbone2d_deblock_1->getOutput(0),backbone2d_deblock_2->getOutput(0)};
     auto backbone2d_cat_tensor = network->addConcatenation(backbone2d_inputTensors, 3);
@@ -1371,8 +1373,8 @@ auto center_head_shared_conv  = convBnLELU(network,weightMap,*backbone2d_cat_ten
                                                                                                        CENTER_HEAD_SHARED_CONV_KERNEL_SIZE,
                                                                                                        CENTER_HEAD_SHARED_CONV_STRIDE,
                                                                                                        CENTER_HEAD_SHARED_CONV_PADDING,
-                                                                                                       "module.dense_head.shared_conv.0",
-                                                                                                       "module.dense_head.shared_conv.1" );
+                                                                                                       "dense_head.shared_conv.0",
+                                                                                                       "dense_head.shared_conv.1" );
 
 //  center   
 auto center_header  = convBnLELU(network,weightMap,*center_head_shared_conv->getOutput(0),
@@ -1380,14 +1382,14 @@ auto center_header  = convBnLELU(network,weightMap,*center_head_shared_conv->get
                                                                                                        CENTER_SEQ_0_CONV_0_KERNEL_SIZE,
                                                                                                        CENTER_SEQ_0_CONV_0_STRIDE,
                                                                                                        CENTER_SEQ_0_CONV_0_IN_PADDING,
-                                                                                                       "module.dense_head.heads_list.0.center.0.0",
-                                                                                                       "module.dense_head.heads_list.0.center.0.1" );
+                                                                                                       "dense_head.heads_list.0.center.0.0",
+                                                                                                       "dense_head.heads_list.0.center.0.1" );
 auto center_header_last = conv_with_bias(network,weightMap,*center_header->getOutput(0),
                                                                                                        CENTER_CONV_1_OUT_CHANNEL,
                                                                                                        CENTER_CONV_1_KERNEL_SIZE,
                                                                                                        CENTER_CONV_1_STRIDE,
                                                                                                        CENTER_CONV_1_IN_PADDING,
-                                                                                                       "module.dense_head.heads_list.0.center.1");
+                                                                                                       "dense_head.heads_list.0.center.1");
                                                 
 
 //center_z
@@ -1397,14 +1399,14 @@ auto center_z_header  = convBnLELU(network,weightMap,*center_head_shared_conv->g
                                                                                                        CENTER_Z_SEQ_0_CONV_0_KERNEL_SIZE,
                                                                                                        CENTER_Z_SEQ_0_CONV_0_STRIDE,
                                                                                                        CENTER_Z_SEQ_0_CONV_0_IN_PADDING,
-                                                                                                       "module.dense_head.heads_list.0.center_z.0.0",
-                                                                                                       "module.dense_head.heads_list.0.center_z.0.1" );
+                                                                                                       "dense_head.heads_list.0.center_z.0.0",
+                                                                                                       "dense_head.heads_list.0.center_z.0.1" );
 auto center_z_header_last = conv_with_bias(network,weightMap,*center_z_header->getOutput(0),
                                                                                                        CENTER_Z_CONV_1_OUT_CHANNEL,
                                                                                                        CENTER_Z_CONV_1_KERNEL_SIZE,
                                                                                                        CENTER_Z_CONV_1_STRIDE,
                                                                                                        CENTER_Z_CONV_1_IN_PADDING,
-                                                                                                       "module.dense_head.heads_list.0.center_z.1");
+                                                                                                       "dense_head.heads_list.0.center_z.1");
 
 //dim
 auto dim_header  = convBnLELU(network,weightMap,*center_head_shared_conv->getOutput(0),
@@ -1412,14 +1414,14 @@ auto dim_header  = convBnLELU(network,weightMap,*center_head_shared_conv->getOut
                                                                                                        DIM_SEQ_0_CONV_0_KERNEL_SIZE,
                                                                                                        DIM_SEQ_0_CONV_0_STRIDE,
                                                                                                        DIM_SEQ_0_CONV_0_IN_PADDING,
-                                                                                                       "module.dense_head.heads_list.0.dim.0.0",
-                                                                                                       "module.dense_head.heads_list.0.dim.0.1" );
+                                                                                                       "dense_head.heads_list.0.dim.0.0",
+                                                                                                       "dense_head.heads_list.0.dim.0.1" );
 auto dim_header_last = conv_with_bias(network,weightMap,*dim_header->getOutput(0),
                                                                                                        DIM_CONV_1_OUT_CHANNEL,
                                                                                                        DIM_CONV_1_KERNEL_SIZE,
                                                                                                        DIM_CONV_1_STRIDE,
                                                                                                        DIM_CONV_1_IN_PADDING,
-                                                                                                       "module.dense_head.heads_list.0.dim.1");
+                                                                                                       "dense_head.heads_list.0.dim.1");
 
 //rot
 auto rot_header  = convBnLELU(network,weightMap,*center_head_shared_conv->getOutput(0),
@@ -1427,14 +1429,14 @@ auto rot_header  = convBnLELU(network,weightMap,*center_head_shared_conv->getOut
                                                                                                        ROT_SEQ_0_CONV_0_KERNEL_SIZE,
                                                                                                        ROT_SEQ_0_CONV_0_STRIDE,
                                                                                                        ROT_SEQ_0_CONV_0_IN_PADDING,
-                                                                                                       "module.dense_head.heads_list.0.rot.0.0",
-                                                                                                       "module.dense_head.heads_list.0.rot.0.1" );
+                                                                                                       "dense_head.heads_list.0.rot.0.0",
+                                                                                                       "dense_head.heads_list.0.rot.0.1" );
 auto rot_header_last = conv_with_bias(network,weightMap,*rot_header->getOutput(0),
                                                                                                        ROT_CONV_1_OUT_CHANNEL,
                                                                                                        ROT_CONV_1_KERNEL_SIZE,
                                                                                                        ROT_CONV_1_STRIDE,
                                                                                                        ROT_CONV_1_IN_PADDING,
-                                                                                                       "module.dense_head.heads_list.0.rot.1");
+                                                                                                       "dense_head.heads_list.0.rot.1");
 
 // iou
 auto iou_header  = convBnLELU(network,weightMap,*center_head_shared_conv->getOutput(0),
@@ -1442,14 +1444,14 @@ auto iou_header  = convBnLELU(network,weightMap,*center_head_shared_conv->getOut
                                                                                                        IOU_SEQ_0_CONV_0_KERNEL_SIZE,
                                                                                                        IOU_SEQ_0_CONV_0_STRIDE,
                                                                                                        IOU_SEQ_0_CONV_0_IN_PADDING,
-                                                                                                       "module.dense_head.heads_list.0.iou.0.0",
-                                                                                                       "module.dense_head.heads_list.0.iou.0.1" );
+                                                                                                       "dense_head.heads_list.0.iou.0.0",
+                                                                                                       "dense_head.heads_list.0.iou.0.1" );
 auto iou_header_last = conv_with_bias(network,weightMap,*iou_header->getOutput(0),
                                                                                                        IOU_CONV_1_OUT_CHANNEL,
                                                                                                        IOU_CONV_1_KERNEL_SIZE,
                                                                                                        IOU_CONV_1_STRIDE,
                                                                                                        IOU_CONV_1_IN_PADDING,
-                                                                                                       "module.dense_head.heads_list.0.iou.1");
+                                                                                                       "dense_head.heads_list.0.iou.1");
 
 //hm
 
@@ -1458,14 +1460,14 @@ auto hm_header  = convBnLELU(network,weightMap,*center_head_shared_conv->getOutp
                                                                                                        HM_SEQ_0_CONV_0_KERNEL_SIZE,
                                                                                                        HM_SEQ_0_CONV_0_STRIDE,
                                                                                                        HM_SEQ_0_CONV_0_IN_PADDING,
-                                                                                                       "module.dense_head.heads_list.0.hm.0.0",
-                                                                                                       "module.dense_head.heads_list.0.hm.0.1" );
+                                                                                                       "dense_head.heads_list.0.hm.0.0",
+                                                                                                       "dense_head.heads_list.0.hm.0.1" );
 auto  hm_header_last = conv_with_bias(network,weightMap,*hm_header->getOutput(0),
                                                                                                        HM_CONV_1_OUT_CHANNEL,
                                                                                                        HM_CONV_1_KERNEL_SIZE,
                                                                                                        HM_CONV_1_STRIDE,
                                                                                                        HM_CONV_1_IN_PADDING,
-                                                                                                       "module.dense_head.heads_list.0.hm.1");
+                                                                                                       "dense_head.heads_list.0.hm.1");
 
 
 /*
@@ -1747,6 +1749,7 @@ auto filter_box_by_score_layer = add_filter_box_by_score_op(network,hm_topk_1->g
     // Don't need the network any more
     network->destroy();
     // pluginObj_voxelGenerator->destroy();
+    cout << "Destroy network successfully!" << endl;
 
     // Release host memory
     for (auto& mem : weightMap)
@@ -1765,6 +1768,7 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     // Create builder
     IBuilder* builder = createInferBuilder(rt_glogger); // rt_glogger
     IBuilderConfig* config = builder->createBuilderConfig();
+    config->setProfilingVerbosity(ProfilingVerbosity::kDETAILED);
 
     // Create model to populate the network, then set the outputs and create an engine
     ICudaEngine* engine = createEngine(maxBatchSize, builder, config); // DataType::kFLOAT
@@ -1772,9 +1776,11 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
 
     // Serialize the engine
     (*modelStream) = engine->serialize();
+    printf("Done serializing model.\n");
 
     // Close everything down
     engine->destroy();
+    printf("Done destroying engine.\n");
     builder->destroy();
 }
 
@@ -1830,7 +1836,7 @@ int main(int argc, char** argv) {
     // int feature_map_channel = BACKBONE_FEATURE_MAP_CHANNEL;
 
 
-    int line_num = 500;//MAX_WIN_NUM; 500
+    int line_num = 1000;//MAX_WIN_NUM; 500
     int feature_map_channel = 9;//POSEMBED_LAYBERS_OUT_FEATURES;  9
     int voxel_feature_byte_size = 1 * line_num * feature_map_channel * sizeof(float);
 
@@ -1874,7 +1880,8 @@ int main(int argc, char** argv) {
     // float * coors = (float *)malloc(coors_byte_size);
     unsigned int voxel_num = 0;
 
-    std::string Data_File = "../data/bin/";
+    // std::string Data_File = "../data/expo/";
+    std::string Data_File = "../data/hb/";
     std::string save_root = "../data/outputs/";
 
     std::vector<Bndbox> nms_pred;
@@ -1883,6 +1890,7 @@ int main(int argc, char** argv) {
 
     for (int i = 0; i <10; i++) //7481   5
     {
+        // if(i != 8) continue;
         std::cout << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
         std::string dataFile = Data_File;
         std::stringstream ss;
@@ -1921,12 +1929,16 @@ int main(int argc, char** argv) {
         // DMA input batch data to device, infer on the batch asynchronously, and DMA output back to host
         // checkCudaErrors(cudaMemcpyAsync(buffers[inputIndex1], points, 1 * MAX_POINTS * 4* sizeof(float), cudaMemcpyHostToDevice, stream));
         // checkCudaErrors(cudaMemcpyAsync(buffers[inputIndex2], &points_size, 1 * sizeof(unsigned int),cudaMemcpyHostToDevice, stream));
-
+        std::cout << "points_size: " << points_size << std::endl;
         checkCudaErrors(cudaMemcpy(buffers[inputIndex1], points, 1 * MAX_POINTS_NUM * 4* sizeof(float), cudaMemcpyHostToDevice));
         checkCudaErrors(cudaMemcpy(buffers[inputIndex2], &points_size, 1 * sizeof(unsigned int),cudaMemcpyHostToDevice));
 
-        context->enqueueV2(buffers, stream, nullptr);
-       
+        bool success = context->enqueueV2(buffers, stream, nullptr);
+        if (!success) {
+            std::cerr << "enqueueV2 failed" << std::endl;
+            break;
+        }
+        // checkCudaErrors(cudaStreamSynchronize(stream));
 
         checkCudaErrors(cudaMemcpy(voxel_feature, buffers[outputIndex1], 
                 voxel_feature_byte_size, cudaMemcpyDeviceToHost));
